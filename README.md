@@ -13,13 +13,13 @@ Below is the description of all the accepted options
 ## Examples
 
 > See list of index changes before applying
-```bash
+```shell
 $ index --config "xyz.json" --uri "mongodb://127.0.0.1:27017/database_name"
 
 ```
 
 > Apply the index changes
-```bash
+```shell
 $ index --config "xyz.json" --uri "mongodb://127.0.0.1:27017/database_name" --apply
 ``` 
 
