@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/globalsign/mgo"
 	"github.com/idnan/go-mongo-indexer/pkg/util"
 	"log"
 	"reflect"
@@ -24,8 +25,61 @@ func execute() {
 	}
 
 	if *apply {
-		// todo apply the indexes
+		applyDiff(indexDiff)
 	}
+}
+
+func applyDiff(indexDiff *IndexDiff) {
+	for _, collection := range Collections() {
+		indexesToRemove := indexDiff.Old[collection]
+		indexesToAdd := indexDiff.New[collection]
+
+		if indexesToRemove == nil && indexesToAdd == nil {
+			fmt.Printf("\nNothing to change in %s!\n\n", collection)
+			continue
+		}
+
+		fmt.Printf("\nApplying Changes: %s\n", collection)
+
+		// @todo cap size
+
+		for indexName, columns := range indexesToRemove {
+			util.PrintRed(fmt.Sprintf("- Dropping index %s: %s\n", indexName, util.JsonEncode(columns)))
+			dropIndex(collection, indexName)
+		}
+
+		for indexName, columns := range indexesToAdd {
+			util.PrintGreen(fmt.Sprintf("+ Adding index %s: %s\n", indexName, util.JsonEncode(columns)))
+			createIndex(collection, indexName, columns)
+		}
+	}
+}
+
+func createIndex(collection string, indexName string, columns []string) bool {
+	index := mgo.Index{
+		Key:              columns,
+		Background:       true,
+		Name:             indexName,
+		LanguageOverride: "search_lang",
+	}
+
+	err := db.DB("oms_api").C(collection).EnsureIndex(index)
+
+	if err != nil {
+		log.Fatalln(err.Error())
+	}
+
+	return true
+}
+
+func dropIndex(collection string, indexName string) bool {
+	err := db.DB("oms_api").C(collection).DropIndexName(indexName)
+
+	if err != nil {
+		log.Fatalln(err.Error())
+	}
+
+	return true
 }
 
 func showDiff(indexDiff *IndexDiff) {
@@ -73,7 +127,10 @@ func getIndexesDiff() *IndexDiff {
 		// If we don't have the current collection in the index create list then drop all index
 		if !IsCollectionToIndex(collection) {
 			for indexName, indexDetail := range currentIndexes {
-				oldIndexes[collection] = map[string][]string{indexName: indexDetail}
+				if oldIndexes[collection] == nil {
+					oldIndexes[collection] = make(map[string][]string)
+				}
+				oldIndexes[collection][indexName] = indexDetail
 			}
 			continue
 		}
