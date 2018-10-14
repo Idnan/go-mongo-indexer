@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -11,7 +10,7 @@ import (
 
 func ConfigCollections() []ConfigCollection {
 
-	path, _ := filepath.Abs(fmt.Sprintf("config/%s.json", *config))
+	path, _ := filepath.Abs(*config)
 
 	jsonFile, err := os.Open(path)
 

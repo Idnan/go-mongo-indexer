@@ -4,50 +4,57 @@ import (
 	"flag"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/globalsign/mgo"
-	"github.com/idnan/go-mongo-indexer/pkg/storage"
-	_ "github.com/joho/godotenv/autoload"
 	"log"
 	"os"
+	"time"
 )
 
 var (
-	config *string
-	apply  *bool
-	db     *mgo.Session
+	config   *string
+	apply    *bool
+	mongoUri *string
+	session  *mgo.Session
+	db       *mgo.Database
 )
 
 func init() {
-	config = flag.String("c", "", "index config file")
-	apply = flag.Bool("apply", false, "Apply the changes")
+	config = flag.String("config", "", "[REQUIRED] index config file")
+	apply = flag.Bool("apply", false, "apply the changes")
+	mongoUri = flag.String("uri", "", "[REQUIRED] mongo uri path")
 	flag.Parse()
 
 	initDb()
 }
 
 func main() {
-	if *config == "" {
-		log.Fatalln("index config file is required")
+	if *config == "" || *mongoUri == "" {
+		usage()
 	}
-	defer db.Close()
 
+	defer session.Close()
 	execute()
 }
 
 func initDb() {
-	session, err := storage.Connect(&storage.Config{
-		Host:     os.Getenv("OMS_API.DB.MONGO.HOST"),
-		Port:     os.Getenv("OMS_API.DB.MONGO.PORT"),
-		Database: os.Getenv("OMS_API.DB.MONGO.DATABASE"),
-		Username: os.Getenv("OMS_API.DB.MONGO.USERNAME"),
-		Password: os.Getenv("OMS_API.DB.MONGO.PASSWORD"),
-		Options:  os.Getenv("OMS_API.DB.MONGO.OPTS"),
-	})
+	var dialInfo *mgo.DialInfo
+	var err error
 
+	dialInfo, err = mgo.ParseURL(*mongoUri)
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
 
-	db = session
+	session, err = mgo.DialWithTimeout(*mongoUri, time.Second*3)
+	if err != nil {
+		log.Fatalln(err.Error())
+	}
+
+	db = session.DB(dialInfo.Database)
+}
+
+func usage() {
+	flag.Usage()
+	os.Exit(1)
 }
 
 func dd(data ...interface{}) {

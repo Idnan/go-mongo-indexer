@@ -11,11 +11,7 @@ import (
 	"reflect"
 )
 
-type IndexDiff struct {
-	Old map[string]map[string][]string
-	New map[string]map[string][]string
-}
-
+// Execute the command
 func execute() {
 
 	indexDiff := getIndexesDiff()
@@ -29,17 +25,18 @@ func execute() {
 	}
 }
 
+// Drop and apply the indexes
 func applyDiff(indexDiff *IndexDiff) {
 	for _, collection := range Collections() {
 		indexesToRemove := indexDiff.Old[collection]
 		indexesToAdd := indexDiff.New[collection]
 
 		if indexesToRemove == nil && indexesToAdd == nil {
-			fmt.Printf("\nNothing to change in %s!\n\n", collection)
+			fmt.Printf("\nNothing to change in %s.%s!\n\n", db.Name, collection)
 			continue
 		}
 
-		fmt.Printf("\nApplying Changes: %s\n", collection)
+		fmt.Printf("\nApplying Changes: %s.%s\n", db.Name, collection)
 
 		// @todo cap size
 
@@ -55,6 +52,7 @@ func applyDiff(indexDiff *IndexDiff) {
 	}
 }
 
+// Create index of on the given collection with index name and columns
 func createIndex(collection string, indexName string, columns []string) bool {
 	index := mgo.Index{
 		Key:              columns,
@@ -63,7 +61,7 @@ func createIndex(collection string, indexName string, columns []string) bool {
 		LanguageOverride: "search_lang",
 	}
 
-	err := db.DB("oms_api").C(collection).EnsureIndex(index)
+	err := db.C(collection).EnsureIndex(index)
 
 	if err != nil {
 		log.Fatalln(err.Error())
@@ -72,8 +70,9 @@ func createIndex(collection string, indexName string, columns []string) bool {
 	return true
 }
 
+// Drop an index by name from given collection
 func dropIndex(collection string, indexName string) bool {
-	err := db.DB("oms_api").C(collection).DropIndexName(indexName)
+	err := db.C(collection).DropIndexName(indexName)
 
 	if err != nil {
 		log.Fatalln(err.Error())
@@ -82,6 +81,8 @@ func dropIndex(collection string, indexName string) bool {
 	return true
 }
 
+// Show the index difference, the indexes with `-` will be deleted only
+// the ones with the `+` will be created
 func showDiff(indexDiff *IndexDiff) {
 
 	for _, collection := range Collections() {
@@ -89,11 +90,11 @@ func showDiff(indexDiff *IndexDiff) {
 		indexesToAdd := indexDiff.New[collection]
 
 		if indexesToRemove == nil && indexesToAdd == nil {
-			fmt.Printf("\nNothing to change in %s!\n\n", collection)
+			fmt.Printf("\nNothing to change in %s.%s!\n\n", db.Name, collection)
 			continue
 		}
 
-		fmt.Printf("\n%s\n", collection)
+		fmt.Printf("\n%s.%s\n", db.Name, collection)
 
 		for indexName, columns := range indexesToRemove {
 			util.PrintRed(fmt.Sprintf("- %s: %s\n", indexName, util.JsonEncode(columns)))
@@ -105,6 +106,9 @@ func showDiff(indexDiff *IndexDiff) {
 	}
 }
 
+// Match existing indexes with the given config file and match and find the diff
+// the indexes that are not inside the config will be deleted, only the indexes in
+// the config file will be created
 func getIndexesDiff() *IndexDiff {
 
 	oldIndexes := make(map[string]map[string][]string)
@@ -202,15 +206,18 @@ func getIndexesDiff() *IndexDiff {
 	return &IndexDiff{oldIndexes, newIndexes}
 }
 
+// Generate index name by doing md5 of indexes json
 func GenerateIndexName(indexColumns interface{}) string {
 	content, _ := json.Marshal(indexColumns)
 	algorithm := md5.New()
 	algorithm.Write(content)
+
 	return hex.EncodeToString(algorithm.Sum(nil))
 }
 
+// Return list of database collections
 func Collections() []string {
-	collections, err := db.DB("oms_api").CollectionNames()
+	collections, err := db.CollectionNames()
 
 	if err != nil {
 		log.Fatalln(err.Error())
@@ -219,8 +226,9 @@ func Collections() []string {
 	return collections
 }
 
+// Return database collection indexes
 func DbIndexes(collection string) map[string][]string {
-	indexes, err := db.DB("oms_api").C(collection).Indexes()
+	indexes, err := db.C(collection).Indexes()
 
 	if err != nil {
 		log.Fatalln(err.Error())
