@@ -1,5 +1,5 @@
 # go-mongo-indexer
-> CLI tool to manage mongo database indexes through json files
+> CLI tool to manage mongo database collection indexes through json files
 
 ## Usage
 ```shell
