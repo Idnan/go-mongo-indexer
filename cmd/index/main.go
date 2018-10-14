@@ -2,10 +2,11 @@ package main
 
 import (
 	"flag"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/globalsign/mgo"
 	"github.com/idnan/go-mongo-indexer/pkg/storage"
 	_ "github.com/joho/godotenv/autoload"
-	"github.com/withmandala/go-log"
+	"log"
 	"os"
 )
 
@@ -13,8 +14,6 @@ var (
 	config *string
 	apply  *bool
 	db     *mgo.Session
-
-	logger = log.New(os.Stderr).WithDebug()
 )
 
 func init() {
@@ -27,7 +26,7 @@ func init() {
 
 func main() {
 	if *config == "" {
-		logger.Error("index config file is required")
+		log.Fatalln("index config file is required")
 	}
 	defer db.Close()
 
@@ -45,8 +44,13 @@ func initDb() {
 	})
 
 	if err != nil {
-		logger.Fatal(err)
+		log.Fatalln(err.Error())
 	}
 
 	db = session
+}
+
+func dd(data ...interface{}) {
+	spew.Dump(data)
+	os.Exit(0)
 }

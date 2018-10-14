@@ -4,18 +4,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 )
 
-func ConfigCollections(file string) []ConfigCollection {
+func ConfigCollections() []ConfigCollection {
 
-	path, _ := filepath.Abs(fmt.Sprintf("config/%s.json", file))
+	path, _ := filepath.Abs(fmt.Sprintf("config/%s.json", *config))
 
 	jsonFile, err := os.Open(path)
 
 	if err != nil {
-		logger.Error(err.Error())
+		log.Fatalln(err.Error())
 	}
 
 	defer jsonFile.Close()
@@ -29,8 +30,8 @@ func ConfigCollections(file string) []ConfigCollection {
 	return collections
 }
 
-func ConfigCollectionIndexes(file string, collection string) *ConfigCollection {
-	collections := ConfigCollections(file)
+func GetConfigCollection(collection string) *ConfigCollection {
+	collections := ConfigCollections()
 
 	for _, c := range collections {
 		if c.Collection == collection {

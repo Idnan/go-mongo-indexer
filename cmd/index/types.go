@@ -1,7 +1,7 @@
 package main
 
 type ConfigCollection struct {
-	Collection string
-	CapSize    string
-	Indexes    map[string]string
+	Collection string     `json:"collection"`
+	CapSize    string     `json:"cap"`
+	Indexes    [][]string `json:"index"`
 }
