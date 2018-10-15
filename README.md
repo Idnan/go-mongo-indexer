@@ -10,7 +10,7 @@ Below is the description of all the accepted options
 - `--config` required, path to json file containing the each collection index. This json file should be in this [format](https://gist.github.com/Idnan/71e0478985a3aefa88f6502f83b28056#file-go-mongo-indexer-format-json)
 - `--uri` required, mongo database uri
 
-## Json Format
+## Config Format
 The config json file that you will pass to `--config` flag to index the database collection should be in specific format. This file is an array of objects. Where each object has details like collection name, cap size and indexes for this specific collection.
 ```
 [
