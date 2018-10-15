@@ -17,10 +17,10 @@ indexer --config <index-config-file>
 Details of options is listed below
 
 | **Option** | **Required?** | **Description** |
-|--------|------|-------|
-| `--config` | Yes | Path to [indexes configuration file](#config-format) |
-| `--uri` | Yes | MongoDB connection string e.g. `mongodb://db1.example.net:27017` |
-| `--apply` | No | Whether to apply the indexes on collections or not. If not given, it will show the plan that will be applied |
+|------------|--------|-------|
+| `config` | Yes | Path to [indexes configuration file](#config-format) |
+| `uri`    | Yes | MongoDB connection string e.g. `mongodb://db1.example.net:27017` |
+| `apply`  | No  | Whether to apply the indexes on collections or not. If not given, it will show the plan that will be applied |
 
 
 ## Config Format
