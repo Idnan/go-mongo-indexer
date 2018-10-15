@@ -51,13 +51,13 @@ The config json file that you will pass to `--config` flag to index the database
 
 > See list of index changes before applying
 ```shell
-$ indexer --config "xyz.json" --uri "mongodb://127.0.0.1:27017/database_name"
+$ indexer --config "/path/to/xyz.json" --uri "mongodb://127.0.0.1:27017/database_name"
 
 ```
 
 > Apply the index changes
 ```shell
-$ indexer --config "xyz.json" --uri "mongodb://127.0.0.1:27017/database_name" --apply
+$ indexer --config "/path/to/xyz.json" --uri "mongodb://127.0.0.1:27017/database_name" --apply
 ``` 
 
 ## Todo
