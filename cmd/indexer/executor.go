@@ -38,8 +38,6 @@ func applyDiff(indexDiff *IndexDiff) {
 			continue
 		}
 
-		fmt.Printf("\nApplying Changes: %s.%s\n", db.Name, collection)
-
 		for indexName, columns := range indexesToRemove {
 			util.PrintRed(fmt.Sprintf("- Dropping index %s: %s\n", indexName, util.JsonEncode(columns)))
 			dropIndex(collection, indexName)
