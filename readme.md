@@ -2,9 +2,6 @@
 
 > CLI utility to manage mongodb collection indexes
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/idnan/go-mongo-indexer)](https://goreportcard.com/report/github.com/idnan/go-mongo-indexer)
-[![Build Status](https://travis-ci.org/idnan/go-mongo-indexer.svg?branch=master)](https://travis-ci.org/idnan/go-mongo-indexer)
-
 ## Usage
 
 ```shell
