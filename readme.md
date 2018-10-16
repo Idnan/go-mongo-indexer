@@ -2,7 +2,6 @@
 
 > CLI utility to manage mongodb collection indexes
 
-(https://goreportcard.com/report/github.com/idnan/go-mongo-indexer)
 [![Blog URL](https://img.shields.io/badge/Author-blog-green.svg?style=flat-square)](https://adnanahmed.info)
 [![Build Status](https://travis-ci.org/idnan/go-mongo-indexer.svg?branch=master)](https://travis-ci.org/idnan/go-mongo-indexer)
 
@@ -67,7 +66,7 @@ The configuration file is just a simple json file containing the indexes to be a
 indexer --config "/path/to/xyz.json" --uri "mongodb://127.0.0.1:27017/database_name"
 ```
 
-<img src="https://i.imgur.com/3yj4gMh.png" alt=" style="max-width: 70%;display: block;margin-left: auto;margin-right: auto;"/>
+<img src="https://i.imgur.com/3yj4gMh.png" style="max-width: 70%;display: block;margin-left: auto;margin-right: auto;"/>
 
 > Apply the index changes
 ```shell
