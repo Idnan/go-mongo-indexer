@@ -2,6 +2,10 @@
 
 > CLI utility to manage mongodb collection indexes
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/idnan/go-mongo-indexer)](https://goreportcard.com/report/github.com/idnan/go-mongo-indexer)
+[![Blog URL](https://img.shields.io/badge/Author-blog-green.svg?style=flat-square)](https://adnanahmed.info)
+[![Build Status](https://travis-ci.org/idnan/go-mongo-indexer.svg?branch=master)](https://travis-ci.org/idnan/go-mongo-indexer)
+
 ## Usage
 
 ```shell
@@ -35,16 +39,16 @@ The configuration file is just a simple json file containing the indexes to be a
             ["currency"]
             ["-createdAt"],
             ["orderNumber", "type"],  // Composite index on orderNUmber and type
-            ["-type", "-paymentStatus", "-payment.paymentMethod"],
+            ["-type", "-paymentStatus", "-payment.paymentMethod"]
         ]
     },
     {
         "collection": "collection_name",
         "cap": null,
         "index": [
-            ["-userId"]
+            ["-userId"],
             ["username"],
-            ["-createdAt", "-user.email"],
+            ["-createdAt", "-user.email"]
         ]
     }
     ....
