@@ -31,14 +31,14 @@ func applyDiff(indexDiff *IndexDiff) {
 		indexesToRemove := indexDiff.Old[collection]
 		indexesToAdd := indexDiff.New[collection]
 
+		util.PrintBold(fmt.Sprintf("\n%s.%s\n", db.Name, collection))
+
 		if indexesToRemove == nil && indexesToAdd == nil {
-			fmt.Printf("\nNothing to change in %s.%s!\n", db.Name, collection)
+			util.PrintGreen(fmt.Sprintln("No index changes"))
 			continue
 		}
 
 		fmt.Printf("\nApplying Changes: %s.%s\n", db.Name, collection)
-
-		// @todo cap size
 
 		for indexName, columns := range indexesToRemove {
 			util.PrintRed(fmt.Sprintf("- Dropping index %s: %s\n", indexName, util.JsonEncode(columns)))
@@ -89,12 +89,12 @@ func showDiff(indexDiff *IndexDiff) {
 		indexesToRemove := indexDiff.Old[collection]
 		indexesToAdd := indexDiff.New[collection]
 
+		util.PrintBold(fmt.Sprintf("\n%s.%s\n", db.Name, collection))
+
 		if indexesToRemove == nil && indexesToAdd == nil {
-			fmt.Printf("\nNothing to change in %s.%s!\n", db.Name, collection)
+			util.PrintGreen(fmt.Sprintln("No index changes"))
 			continue
 		}
-
-		fmt.Printf("\n%s.%s\n", db.Name, collection)
 
 		for indexName, columns := range indexesToRemove {
 			util.PrintRed(fmt.Sprintf("- %s: %s\n", indexName, util.JsonEncode(columns)))

@@ -32,3 +32,8 @@ func PrintGreen(text string) {
 func PrintRed(text string) {
 	fmt.Printf("\033[1;31m%s\033[0m", text)
 }
+
+// Print to stdout with bold font
+func PrintBold(text string) {
+	fmt.Printf("\033[1m%s\033[0m", text)
+}
