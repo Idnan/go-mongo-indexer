@@ -67,7 +67,7 @@ indexer --config "/path/to/xyz.json" --uri "mongodb://127.0.0.1:27017/database_n
 ```
 
 <p align="center">
-        <img src="https://i.imgur.com/3yj4gMh.png" style="max-width: 70%;display: block;margin-left: auto;margin-right: auto;"/>
+        <img src="https://i.imgur.com/3yj4gMh.png" height="400px"/>
 </p>
 
 > Apply the index changes
