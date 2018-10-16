@@ -1,0 +1,27 @@
+project_name: indexer
+before:
+  hooks:
+  - go generate ./...
+builds:
+- main: ./cmd/indexer/.
+  binary: indexer
+  ldflags:
+  - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+  env:
+  - CGO_ENABLED=0
+checksum:
+  name_template: "{{ .ProjectName }}_checksums.txt"
+archive:
+  name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+  replacements:
+    windows: Windows
+    amd64: 64-bit
+    386: 32-bit
+    darwin: macOS
+    linux: Linux
+  format: tar.gz
+  format_overrides:
+  - goos: windows
+    format: zip
+  files:
+  - readme.md
