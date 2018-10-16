@@ -63,14 +63,12 @@ The configuration file is just a simple json file containing the indexes to be a
 indexer --config "/path/to/xyz.json" --uri "mongodb://127.0.0.1:27017/database_name"
 ```
 
-> Screenshot with plan
+![plan](https://i.imgur.com/3yj4gMh.png)
 
 > Apply the index changes
 ```shell
 $ indexer --config "/path/to/xyz.json" --uri "mongodb://127.0.0.1:27017/database_name" --apply
 ```
-
-> Screenshot with the applied changes
 
 ## Todo
 * [ ] Write tests
