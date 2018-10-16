@@ -22,14 +22,14 @@ func init() {
 	apply = flag.Bool("apply", false, "apply the changes")
 	mongoUri = flag.String("uri", "", "[REQUIRED] mongo uri path")
 	flag.Parse()
-
-	initDb()
 }
 
 func main() {
 	if *config == "" || *mongoUri == "" {
 		usage()
 	}
+
+	initDb()
 
 	defer session.Close()
 	execute()
@@ -59,5 +59,5 @@ func usage() {
 
 func dd(data ...interface{}) {
 	spew.Dump(data)
-	os.Exit(0)
+	os.Exit(1)
 }
