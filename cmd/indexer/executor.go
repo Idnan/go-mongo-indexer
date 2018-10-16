@@ -32,7 +32,7 @@ func applyDiff(indexDiff *IndexDiff) {
 		indexesToAdd := indexDiff.New[collection]
 
 		if indexesToRemove == nil && indexesToAdd == nil {
-			fmt.Printf("\nNothing to change in %s.%s!\n\n", db.Name, collection)
+			fmt.Printf("\nNothing to change in %s.%s!\n", db.Name, collection)
 			continue
 		}
 
@@ -90,7 +90,7 @@ func showDiff(indexDiff *IndexDiff) {
 		indexesToAdd := indexDiff.New[collection]
 
 		if indexesToRemove == nil && indexesToAdd == nil {
-			fmt.Printf("\nNothing to change in %s.%s!\n\n", db.Name, collection)
+			fmt.Printf("\nNothing to change in %s.%s!\n", db.Name, collection)
 			continue
 		}
 
