@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/globalsign/mgo"
 	"log"
 	"os"
@@ -54,10 +53,5 @@ func initDb() {
 
 func usage() {
 	flag.Usage()
-	os.Exit(1)
-}
-
-func dd(data ...interface{}) {
-	spew.Dump(data)
 	os.Exit(1)
 }
