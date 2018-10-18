@@ -4,6 +4,7 @@
 
 [![Blog URL](https://img.shields.io/badge/Author-blog-green.svg?style=flat-square)](https://adnanahmed.info)
 [![Build Status](https://travis-ci.org/idnan/go-mongo-indexer.svg?branch=master)](https://travis-ci.org/idnan/go-mongo-indexer)
+[![Go Report Card](https://goreportcard.com/badge/github.com/gohugoio/hugo)](https://goreportcard.com/report/github.com/gohugoio/hugo)
 
 ## Usage
 
