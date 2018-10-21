@@ -40,3 +40,13 @@ func GetConfigCollection(collection string) *ConfigCollection {
 
 	return nil
 }
+
+func GetConfigCollectionCapSize(collection string) int {
+	c := GetConfigCollection(collection)
+
+	if c == nil {
+		return 0
+	}
+
+	return c.CapSize
+}

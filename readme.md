@@ -78,7 +78,7 @@ $ indexer --config "/path/to/xyz.json" --uri "mongodb://127.0.0.1:27017/database
 
 ## Todo
 * [ ] Write tests
-* [ ] Collection capping
+* [x] Collection capping
 * [ ] Support for `unique` and `expireAt` indexes
 
 ## Contributing

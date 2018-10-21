@@ -7,9 +7,12 @@ import (
 	"fmt"
 	"github.com/globalsign/mgo"
 	"github.com/idnan/go-mongo-indexer/pkg/util"
+	"gopkg.in/mgo.v2/bson"
 	"log"
 	"reflect"
 )
+
+const GB1 = 1000000000
 
 // Execute the command
 func execute() {
@@ -30,28 +33,34 @@ func applyDiff(indexDiff *IndexDiff) {
 	for _, collection := range Collections() {
 		indexesToRemove := indexDiff.Old[collection]
 		indexesToAdd := indexDiff.New[collection]
+		capToAdd := indexDiff.Cap[collection]
 
 		util.PrintBold(fmt.Sprintf("\n%s.%s\n", db.Name, collection))
 
-		if indexesToRemove == nil && indexesToAdd == nil {
+		if indexesToRemove == nil && indexesToAdd == nil && capToAdd == 0 {
 			util.PrintGreen(fmt.Sprintln("No index changes"))
 			continue
 		}
 
+		if capToAdd != 0 {
+			util.PrintGreen(fmt.Sprintf("+ Adding cap of %d\n", capToAdd))
+			SetCapSize(collection, capToAdd)
+		}
+
 		for indexName, columns := range indexesToRemove {
 			util.PrintRed(fmt.Sprintf("- Dropping index %s: %s\n", indexName, util.JsonEncode(columns)))
-			dropIndex(collection, indexName)
+			DropIndex(collection, indexName)
 		}
 
 		for indexName, columns := range indexesToAdd {
 			util.PrintGreen(fmt.Sprintf("+ Adding index %s: %s\n", indexName, util.JsonEncode(columns)))
-			createIndex(collection, indexName, columns)
+			CreateIndex(collection, indexName, columns)
 		}
 	}
 }
 
 // Create index of on the given collection with index name and columns
-func createIndex(collection string, indexName string, columns []string) bool {
+func CreateIndex(collection string, indexName string, columns []string) bool {
 	index := mgo.Index{
 		Key:              columns,
 		Background:       true,
@@ -69,7 +78,7 @@ func createIndex(collection string, indexName string, columns []string) bool {
 }
 
 // Drop an index by name from given collection
-func dropIndex(collection string, indexName string) bool {
+func DropIndex(collection string, indexName string) bool {
 	err := db.C(collection).DropIndexName(indexName)
 
 	if err != nil {
@@ -86,12 +95,17 @@ func showDiff(indexDiff *IndexDiff) {
 	for _, collection := range Collections() {
 		indexesToRemove := indexDiff.Old[collection]
 		indexesToAdd := indexDiff.New[collection]
+		capToAdd := indexDiff.Cap[collection]
 
 		util.PrintBold(fmt.Sprintf("\n%s.%s\n", db.Name, collection))
 
-		if indexesToRemove == nil && indexesToAdd == nil {
+		if indexesToRemove == nil && indexesToAdd == nil && capToAdd == 0 {
 			util.PrintGreen(fmt.Sprintln("No index changes"))
 			continue
+		}
+
+		if capToAdd != 0 {
+			util.PrintGreen(fmt.Sprintf("+ Capsize to set: %d\n", capToAdd))
 		}
 
 		for indexName, columns := range indexesToRemove {
@@ -111,6 +125,7 @@ func getIndexesDiff() *IndexDiff {
 
 	oldIndexes := make(map[string]map[string][]string)
 	newIndexes := make(map[string]map[string][]string)
+	capSize := make(map[string]int)
 
 	for _, collection := range Collections() {
 
@@ -123,7 +138,7 @@ func getIndexesDiff() *IndexDiff {
 			givenIndexes = configCollection.Indexes
 		}
 
-		// Get current indexes and cap-size
+		// Get current database collection indexes
 		currentIndexes := DbIndexes(collection)
 
 		// If we don't have the current collection in the index create list then drop all index
@@ -135,6 +150,17 @@ func getIndexesDiff() *IndexDiff {
 				oldIndexes[collection][indexName] = indexDetail
 			}
 			continue
+		}
+
+		// Get the config cap size
+		givenCapSize := GetConfigCollectionCapSize(collection)
+		isAlreadyCapped := IsCollectionCaped(collection)
+
+		minAllowedCapSize := GB1 / 2
+
+		// Add the cap size
+		if givenCapSize > 0 && (givenCapSize >= minAllowedCapSize) && !isAlreadyCapped {
+			capSize[collection] = givenCapSize
 		}
 
 		// Prepare the list of indexes that need to be dropped
@@ -201,7 +227,7 @@ func getIndexesDiff() *IndexDiff {
 		}
 	}
 
-	return &IndexDiff{oldIndexes, newIndexes}
+	return &IndexDiff{oldIndexes, newIndexes, capSize}
 }
 
 // Generate index name by doing md5 of indexes json
@@ -251,4 +277,26 @@ func DbIndexes(collection string) map[string][]string {
 // Drop index from collection by index name
 func IsCollectionToIndex(collection string) bool {
 	return GetConfigCollection(collection) != nil
+}
+
+// Check if the collection is already capped
+func IsCollectionCaped(collection string) bool {
+	var doc bson.M
+	err := db.Run(map[string]string{"collStats": collection}, &doc)
+	if err != nil {
+		log.Fatalln(err.Error())
+	}
+
+	return doc["capped"].(bool)
+}
+
+func SetCapSize(collection string, size int) bool {
+	var doc bson.M
+	err := db.Run(map[string]interface{}{"convertToCapped": collection, "size": size}, &doc)
+
+	if err != nil {
+		log.Fatalln(err.Error())
+	}
+
+	return true
 }
