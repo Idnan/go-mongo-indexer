@@ -1,15 +1,19 @@
 package main
 
 import (
+	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/globalsign/mgo"
-	"github.com/idnan/go-mongo-indexer/pkg/util"
-	"gopkg.in/mgo.v2/bson"
 	"log"
 	"reflect"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"github.com/idnan/go-mongo-indexer/pkg/util"
 )
 
 const GB1 = 1000000000
@@ -35,7 +39,7 @@ func applyDiff(indexDiff *IndexDiff) {
 		indexesToAdd := indexDiff.New[collection]
 		capToAdd := indexDiff.Cap[collection]
 
-		util.PrintBold(fmt.Sprintf("\n%s.%s\n", db.Name, collection))
+		util.PrintBold(fmt.Sprintf("\n%s.%s\n", db.Name(), collection))
 
 		if indexesToRemove == nil && indexesToAdd == nil && capToAdd == 0 {
 			util.PrintGreen(fmt.Sprintln("No index changes"))
@@ -47,28 +51,64 @@ func applyDiff(indexDiff *IndexDiff) {
 			SetCapSize(collection, capToAdd)
 		}
 
-		for indexName, columns := range indexesToRemove {
-			util.PrintRed(fmt.Sprintf("- Dropping index %s: %s\n", indexName, util.JsonEncode(columns)))
-			DropIndex(collection, indexName)
+		for _, index := range indexesToRemove {
+			util.PrintRed(fmt.Sprintf("- Dropping index %s: %s\n", index.Name, util.JsonEncode(index.Keys)))
+			DropIndex(collection, index.Name)
 		}
 
-		for indexName, columns := range indexesToAdd {
-			util.PrintGreen(fmt.Sprintf("+ Adding index %s: %s\n", indexName, util.JsonEncode(columns)))
-			CreateIndex(collection, indexName, columns)
+		for _, index := range indexesToAdd {
+			util.PrintGreen(fmt.Sprintf("+ Adding index %s: %s\n", index.Name, util.JsonEncode(index.Keys)))
+			CreateIndex(collection, index.Name, index)
 		}
 	}
 }
 
-// Create index of on the given collection with index name and columns
-func CreateIndex(collection string, indexName string, columns []string) bool {
-	index := mgo.Index{
-		Key:              columns,
-		Background:       true,
-		Name:             indexName,
-		LanguageOverride: "search_lang",
+// Create index of on the given collection with index Name and columns
+func CreateIndex(collection string, indexName string, indexModel IndexModel) bool {
+
+	keys := indexModel.Keys
+	background := true
+	languageOverride := "search_lang"
+
+	_unique, exists := keys["_unique"]
+	if !exists {
+		_unique = 0
 	}
 
-	err := db.C(collection).EnsureIndex(index)
+	unique := false
+	if _unique == 1 {
+		unique = true
+	}
+
+	_expireAfterSeconds, exists := keys["_expireAfterSeconds"]
+	if !exists {
+		_expireAfterSeconds = 0
+	}
+
+	// setting options
+	opts := &options.IndexOptions{
+		Unique:           &unique,
+		Background:       &background,
+		Name:             &indexName,
+		LanguageOverride: &languageOverride,
+	}
+	expireAfterSeconds := int32(_expireAfterSeconds)
+	if expireAfterSeconds > 0 {
+		opts.ExpireAfterSeconds = &expireAfterSeconds
+	}
+
+	// remove the non index fields
+	delete(keys, "_unique")
+	delete(keys, "_expireAfterSeconds")
+
+	index := mongo.IndexModel{
+		Keys:    keys,
+		Options: opts,
+	}
+
+	indexView := db.Collection(collection).Indexes()
+
+	_, err := indexView.CreateOne(context.TODO(), index)
 
 	if err != nil {
 		log.Fatalln(err.Error())
@@ -77,9 +117,10 @@ func CreateIndex(collection string, indexName string, columns []string) bool {
 	return true
 }
 
-// Drop an index by name from given collection
+// Drop an index by Name from given collection
 func DropIndex(collection string, indexName string) bool {
-	err := db.C(collection).DropIndexName(indexName)
+	indexes := db.Collection(collection).Indexes()
+	_, err := indexes.DropOne(context.TODO(), indexName)
 
 	if err != nil {
 		log.Fatalln(err.Error())
@@ -97,7 +138,7 @@ func showDiff(indexDiff *IndexDiff) {
 		indexesToAdd := indexDiff.New[collection]
 		capToAdd := indexDiff.Cap[collection]
 
-		util.PrintBold(fmt.Sprintf("\n%s.%s\n", db.Name, collection))
+		util.PrintBold(fmt.Sprintf("\n%s.%s\n", db.Name(), collection))
 
 		if indexesToRemove == nil && indexesToAdd == nil && capToAdd == 0 {
 			util.PrintGreen(fmt.Sprintln("No index changes"))
@@ -108,12 +149,12 @@ func showDiff(indexDiff *IndexDiff) {
 			util.PrintGreen(fmt.Sprintf("+ Capsize to set: %d\n", capToAdd))
 		}
 
-		for indexName, columns := range indexesToRemove {
-			util.PrintRed(fmt.Sprintf("- %s: %s\n", indexName, util.JsonEncode(columns)))
+		for _, index := range indexesToRemove {
+			util.PrintRed(fmt.Sprintf("- %s: %s\n", index.Name, util.JsonEncode(index.Keys)))
 		}
 
-		for indexName, columns := range indexesToAdd {
-			util.PrintGreen(fmt.Sprintf("+ %s: %s\n", indexName, util.JsonEncode(columns)))
+		for _, index := range indexesToAdd {
+			util.PrintGreen(fmt.Sprintf("+ %s: %s\n", index.Name, util.JsonEncode(index.Keys)))
 		}
 	}
 }
@@ -123,17 +164,18 @@ func showDiff(indexDiff *IndexDiff) {
 // the config file will be created
 func getIndexesDiff() *IndexDiff {
 
-	oldIndexes := make(map[string]map[string][]string)
-	newIndexes := make(map[string]map[string][]string)
+	oldIndexes := make(map[string]map[string]IndexModel)
+	newIndexes := make(map[string]map[string]IndexModel)
 	capSize := make(map[string]int)
 
 	for _, collection := range Collections() {
 
 		var alreadyAppliedIndexesColumns []interface{}
 		var alreadyAppliedIndexesNames []string
-		var givenIndexes [][]string
+		var givenIndexes []map[string]int
 
 		configCollection := GetConfigCollection(collection)
+
 		if configCollection != nil {
 			givenIndexes = configCollection.Indexes
 		}
@@ -143,11 +185,11 @@ func getIndexesDiff() *IndexDiff {
 
 		// If we don't have the current collection in the index create list then drop all index
 		if !IsCollectionToIndex(collection) {
-			for indexName, indexDetail := range currentIndexes {
+			for _, dbIndex := range currentIndexes {
 				if oldIndexes[collection] == nil {
-					oldIndexes[collection] = make(map[string][]string)
+					oldIndexes[collection] = make(map[string]IndexModel)
 				}
-				oldIndexes[collection][indexName] = indexDetail
+				oldIndexes[collection][dbIndex.Name] = dbIndex
 			}
 			continue
 		}
@@ -164,23 +206,23 @@ func getIndexesDiff() *IndexDiff {
 		}
 
 		// Prepare the list of indexes that need to be dropped
-		for currentIndexName, currentIndexColumns := range currentIndexes {
+		for _, dbIndex := range currentIndexes {
 
 			isCurrentIndexInConfig := false
 
 			for _, givenIndexColumns := range givenIndexes {
 
-				// If the name of index matches the name of given index
+				// If the Name of index matches the Name of given index
 				generatedIndexName := GenerateIndexName(givenIndexColumns)
 
-				if currentIndexName == generatedIndexName {
+				if dbIndex.Name == generatedIndexName {
 					isCurrentIndexInConfig = true
 					alreadyAppliedIndexesNames = append(alreadyAppliedIndexesNames, generatedIndexName)
 					break
 				}
 
 				// First check if this column group has the index
-				if reflect.DeepEqual(givenIndexColumns, currentIndexColumns) {
+				if reflect.DeepEqual(givenIndexColumns, dbIndex.Keys) {
 					isCurrentIndexInConfig = true
 					break
 				}
@@ -188,11 +230,11 @@ func getIndexesDiff() *IndexDiff {
 
 			if !isCurrentIndexInConfig {
 				if oldIndexes[collection] == nil {
-					oldIndexes[collection] = make(map[string][]string)
+					oldIndexes[collection] = make(map[string]IndexModel)
 				}
-				oldIndexes[collection][currentIndexName] = currentIndexColumns
+				oldIndexes[collection][dbIndex.Name] = dbIndex
 			} else {
-				alreadyAppliedIndexesColumns = append(alreadyAppliedIndexesColumns, currentIndexColumns)
+				alreadyAppliedIndexesColumns = append(alreadyAppliedIndexesColumns, dbIndex.Keys)
 			}
 		}
 
@@ -202,7 +244,7 @@ func getIndexesDiff() *IndexDiff {
 
 			isAlreadyApplied := false
 
-			// If the name of index matches the name of given index
+			// If the Name of index matches the Name of given index
 			generatedIndexName := GenerateIndexName(givenIndexColumns)
 
 			for _, appliedIndexColumns := range alreadyAppliedIndexesColumns {
@@ -220,9 +262,9 @@ func getIndexesDiff() *IndexDiff {
 
 			if !isAlreadyApplied {
 				if newIndexes[collection] == nil {
-					newIndexes[collection] = make(map[string][]string)
+					newIndexes[collection] = make(map[string]IndexModel)
 				}
-				newIndexes[collection][generatedIndexName] = givenIndexColumns
+				newIndexes[collection][generatedIndexName] = IndexModel{generatedIndexName, givenIndexColumns}
 			}
 		}
 	}
@@ -230,7 +272,7 @@ func getIndexesDiff() *IndexDiff {
 	return &IndexDiff{oldIndexes, newIndexes, capSize}
 }
 
-// Generate index name by doing md5 of indexes json
+// Generate index Name by doing md5 of indexes json
 func GenerateIndexName(indexColumns interface{}) string {
 	content, _ := json.Marshal(indexColumns)
 	algorithm := md5.New()
@@ -241,7 +283,7 @@ func GenerateIndexName(indexColumns interface{}) string {
 
 // Return list of database collections
 func Collections() []string {
-	collections, err := db.CollectionNames()
+	collections, err := db.ListCollectionNames(context.TODO(), bson.M{})
 
 	if err != nil {
 		log.Fatalln(err.Error())
@@ -251,39 +293,66 @@ func Collections() []string {
 }
 
 // Return database collection indexes
-func DbIndexes(collection string) map[string][]string {
-	indexes, err := db.C(collection).Indexes()
+func DbIndexes(collection string) []IndexModel {
+	cursor, err := db.Collection(collection).Indexes().List(context.TODO())
 
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
 
-	dbIndexes := make(map[string][]string)
+	dbIndexes := make([]IndexModel, 0)
 
-	for _, index := range indexes {
+	for cursor.Next(context.TODO()) {
 
-		keys := index.Key
+		index := bson.M{}
+		if err := cursor.Decode(&index); err != nil {
+			log.Fatalln(err.Error())
+		}
 
-		if len(keys) == 0 || reflect.DeepEqual(keys, []string{"_id"}) {
+		keys := map[string]int{}
+		keysByte, _ := bson.Marshal(index["key"])
+		if err := bson.Unmarshal(keysByte, &keys); err != nil {
+			log.Fatalln(err)
+		}
+
+		// ignore the _id index as it's the default index
+		if len(keys) == 0 || reflect.DeepEqual(keys, map[string]int{"_id": 1}) {
 			continue
 		}
 
-		dbIndexes[index.Name] = keys
+		// check if there's a unique index or not
+		_, exists := index["unique"]
+		if exists {
+			keys["_unique"] = 1
+		}
+
+		// check if there's a unique index or not
+		expireAfterSeconds, exists := index["expireAfterSeconds"]
+		if exists {
+			keys["_expireAfterSeconds"] = int(expireAfterSeconds.(int32))
+		}
+
+		name := index["name"].(string)
+
+		dbIndexes = append(dbIndexes, IndexModel{name, keys})
 	}
 
 	return dbIndexes
 }
 
-// Drop index from collection by index name
+// Drop index from collection by index Name
 func IsCollectionToIndex(collection string) bool {
 	return GetConfigCollection(collection) != nil
 }
 
 // Check if the collection is already capped
 func IsCollectionCaped(collection string) bool {
+
+	command := map[string]string{"collStats": collection}
+	result := db.RunCommand(context.TODO(), command)
+
 	var doc bson.M
-	err := db.Run(map[string]string{"collStats": collection}, &doc)
-	if err != nil {
+	if err := result.Decode(&doc); err != nil {
 		log.Fatalln(err.Error())
 	}
 
@@ -291,10 +360,12 @@ func IsCollectionCaped(collection string) bool {
 }
 
 func SetCapSize(collection string, size int) bool {
-	var doc bson.M
-	err := db.Run(map[string]interface{}{"convertToCapped": collection, "size": size}, &doc)
 
-	if err != nil {
+	command := map[string]interface{}{"convertToCapped": collection, "size": size}
+	result := db.RunCommand(context.TODO(), command)
+
+	var doc bson.M
+	if err := result.Decode(&doc); err != nil {
 		log.Fatalln(err.Error())
 	}
 

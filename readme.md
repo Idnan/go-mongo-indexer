@@ -11,16 +11,18 @@
 ```shell
 indexer --config <index-config-file> 
         --uri <mongodb-connection-uri>
+        --database <database name>
         --apply
 ```
 
 Details of options is listed below
 
-| **Option** | **Required?** | **Description** |
-|------------|--------|-------|
-| `config` | Yes | Path to [indexes configuration file](#config-format) |
-| `uri`    | Yes | MongoDB connection string e.g. `mongodb://db1.example.net:27017` |
-| `apply`  | No  | Whether to apply the indexes on collections or not. If not given, it will show the plan that will be applied |
+| **Option** | **Required?** | **Description**                                                                                              |
+|------------|---------------|--------------------------------------------------------------------------------------------------------------|
+| `config`   | Yes           | Path to [indexes configuration file](#config-format)                                                         |
+| `uri`      | Yes           | MongoDB connection string e.g. `mongodb://127.0.0.1:27017`                                                   |
+| `database` | Yes           | Database name                                                                                                |
+| `apply`    | No            | Whether to apply the indexes on collections or not. If not given, it will show the plan that will be applied |
 
 
 ## Config Format
@@ -32,23 +34,24 @@ The configuration file is just a simple json file containing the indexes to be a
         "collection": "order",     // name of collection
         "cap": null,               // Number of bytes 
         "index": [                 // Array of index details
-            ["cartId"],            // An ascending order index
-            ["-status"],           // Descending order index
-            ["orderId"],
-            ["groupId"],
-            ["currency"]
-            ["-createdAt"],
-            ["orderNumber", "type"],  // Composite index on orderNUmber and type
-            ["-type", "-paymentStatus", "-payment.paymentMethod"]
+            {"cartId": 1},         // An ascending order index
+            {"status": -1},        // Descending order index
+            {"orderId": 1},
+            {"groupId": 1},
+            {"currency": 1},
+            {"createdAt": -1},
+            {"orderNumber": 1, "type": 1},  // Composite index on orderNumber and type
+            {"type": -1, "paymentStatus": -1, "payment.paymentMethod": -1}
         ]
     },
     {
         "collection": "collection_name",
         "cap": null,
         "index": [
-            ["-userId"],
-            ["username"],
-            ["-createdAt", "-user.email"]
+            {"userId": -1},
+            {"username": 1},
+            {"orderId": 1, "_unique": 1},                       // creates a `unique index`
+            {"createdAt": -1, "_expireAfterSeconds": 500}       // creates a `expires index` that will delete document after given number of seconds 
         ]
     }
     ....
@@ -64,7 +67,7 @@ The configuration file is just a simple json file containing the indexes to be a
 > See list of index changes before applying
 
 ```shell
-indexer --config "/path/to/xyz.json" --uri "mongodb://127.0.0.1:27017/database_name"
+indexer --config "/path/to/xyz.json" --uri "mongodb://127.0.0.1:27017/database_name" --database "database_name"
 ```
 
 <p align="center">
@@ -73,13 +76,13 @@ indexer --config "/path/to/xyz.json" --uri "mongodb://127.0.0.1:27017/database_n
 
 > Apply the index changes
 ```shell
-$ indexer --config "/path/to/xyz.json" --uri "mongodb://127.0.0.1:27017/database_name" --apply
+$ indexer --config "/path/to/xyz.json" --uri "mongodb://127.0.0.1:27017/database_name"  --database "database_name" --apply
 ```
 
 ## Todo
 * [ ] Write tests
 * [x] Collection capping
-* [ ] Support for `unique` and `expireAt` indexes
+* [x] Support for `_unique` and `_expireAfterSeconds` indexes
 
 ## Contributing
 
